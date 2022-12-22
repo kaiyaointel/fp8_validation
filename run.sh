@@ -110,20 +110,7 @@ do
         rm -rf ~/.cache/huggingface
 		
         if [ ${pool} == "vision" ]; then
-            python -c '\
-from neural_coder import enable;
-result, _, _ = enable(
-    code="?",
-    args="?",
-    features=[${feature}],
-    fp8_data_format=${fp8_data_format},
-    run_bench=True,
-    use_inc=True,
-);
-print("acc_delta:", result[5]);
-print("acc_fp32:", result[6]);
-print("acc_int8:", result[7]);
-            '\
+            python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/pytorch/examples/blob/main/imagenet/main.py", args="-a '${model}' -e --pretrained /path/to/dataset", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
             2>&1 | tee ${log_path}
         elif [ ${pool} == "hf" ]; then
             python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/text-classification/run_glue.py", args="--model_name_or_path '${model}' --task_name '${task}' --do_eval --output_dir result", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
