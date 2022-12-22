@@ -91,8 +91,8 @@ do
         echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} | tee -a ./logs/summary.log
         
         # clear cache for space
-        rm -rf /root/.cache/torch/hub/checkpoints/
-        rm -rf /root/.cache/huggingface
+        rm -rf ~/.cache/torch/hub/checkpoints/
+        rm -rf ~/.cache/huggingface
     done
 done
 
