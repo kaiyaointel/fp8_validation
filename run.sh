@@ -22,6 +22,7 @@ model_all="\
     convnext_tiny,convnext_small,convnext_base,convnext_large,\
     regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_y_3_2gf,regnet_y_8gf,regnet_y_16gf,regnet_y_32gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,regnet_x_3_2gf,regnet_x_8gf,regnet_x_16gf,regnet_x_32gf,\
 "
+
 model_list=($(echo "${model_all}" |sed 's/,/ /g'))
 
 export LD_PRELOAD=${CONDA_PREFIX}/lib/libjemalloc.so
