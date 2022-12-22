@@ -2,26 +2,39 @@ set -x
 
 mkdir logs
 
-model_all="\
-    alexnet,\
-    densenet121,densenet161,densenet169,densenet201,\
-    efficientnet_b0,efficientnet_b1,efficientnet_b2,efficientnet_b3,efficientnet_b4,efficientnet_b5,efficientnet_b6,efficientnet_b7,\
-    fbnetc_100,\
-    googlenet,\
-    inception_v3,\
-    mnasnet0_5,mnasnet0_75,mnasnet1_0,mnasnet1_3,\
-    mobilenet_v2,mobilenet_v3_small,mobilenet_v3_large,\
-    resnet18,resnet34,resnet50,resnet101,resnet152,\
-    resnext50_32x4d,resnext101_32x8d,\
-    shufflenet_v2_x0_5,shufflenet_v2_x1_0,shufflenet_v2_x1_5,shufflenet_v2_x2_0,\
-    spnasnet_100,\
-    squeezenet1_0,squeezenet1_1,\
-    vgg11,vgg11_bn,vgg13,vgg13_bn,vgg16,vgg16_bn,vgg19,vgg19_bn,\
-    wide_resnet50_2,wide_resnet101_2,\
-    vit_b_16,vit_b_32,vit_l_16,vit_l_32,\
-    convnext_tiny,convnext_small,convnext_base,convnext_large,\
-    regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_y_3_2gf,regnet_y_8gf,regnet_y_16gf,regnet_y_32gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,regnet_x_3_2gf,regnet_x_8gf,regnet_x_16gf,regnet_x_32gf,\
-"
+pool=${1} # vision or hf
+
+if [ ${pool} == "vision" ]; then
+    model_all="\
+        alexnet,\
+        densenet121,densenet161,densenet169,densenet201,\
+        efficientnet_b0,efficientnet_b1,efficientnet_b2,efficientnet_b3,efficientnet_b4,efficientnet_b5,efficientnet_b6,efficientnet_b7,\
+        fbnetc_100,\
+        googlenet,\
+        inception_v3,\
+        mnasnet0_5,mnasnet0_75,mnasnet1_0,mnasnet1_3,\
+        mobilenet_v2,mobilenet_v3_small,mobilenet_v3_large,\
+        resnet18,resnet34,resnet50,resnet101,resnet152,\
+        resnext50_32x4d,resnext101_32x8d,\
+        shufflenet_v2_x0_5,shufflenet_v2_x1_0,shufflenet_v2_x1_5,shufflenet_v2_x2_0,\
+        spnasnet_100,\
+        squeezenet1_0,squeezenet1_1,\
+        vgg11,vgg11_bn,vgg13,vgg13_bn,vgg16,vgg16_bn,vgg19,vgg19_bn,\
+        wide_resnet50_2,wide_resnet101_2,\
+        vit_b_16,vit_b_32,vit_l_16,vit_l_32,\
+        convnext_tiny,convnext_small,convnext_base,convnext_large,\
+        regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_y_3_2gf,regnet_y_8gf,regnet_y_16gf,regnet_y_32gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,regnet_x_3_2gf,regnet_x_8gf,regnet_x_16gf,regnet_x_32gf,\
+    "
+elif [ ${pool} == "hf" ]; then
+    model_all="\
+        textattack/roberta-base-RTE,\
+        textattack/bert-base-uncased-RTE,\
+        Intel/bert-base-uncased-mrpc,\
+        textattack/bert-base-uncased-MRPC,\
+        philschmid/MiniLM-L6-H384-uncased-sst2,\
+        howey/roberta-large-sst2,\
+        distilbert-base-uncased-finetuned-sst-2-english,\
+    "
 
 model_list=($(echo "${model_all}" |sed 's/,/ /g'))
 
@@ -44,6 +57,28 @@ setting_list=($(echo "${setting_all}" |sed 's/,/ /g'))
 
 for model in ${model_list[@]}
 do
+    # hf finetune dataset
+    if [ ${model} == "textattack/roberta-base-RTE" ]; then
+        task="rte"
+    elif [ ${model} == "textattack/bert-base-uncased-RTE" ]; then
+        task="rte"
+    elif [ ${model} == "Intel/bert-base-uncased-mrpc" ]; then
+        task="mrpc"
+    elif [ ${model} == "textattack/bert-base-uncased-MRPC" ]; then
+        task="mrpc"
+    elif [ ${model} == "philschmid/MiniLM-L6-H384-uncased-sst2" ]; then
+        task="sst2"
+    elif [ ${model} == "howey/roberta-large-sst2" ]; then
+        task="sst2"
+    elif [ ${model} == "distilbert-base-uncased-finetuned-sst-2-english" ]; then
+        task="sst2"
+    fi
+
+    model_log=${model}
+    if [[ ${model} =~ "/" ]]; then
+        model_log=${model//'/'/'-'}
+    fi
+
     for setting in ${setting_list[@]}
     do
         if [ ${setting} == "int8_static" ]; then
@@ -66,30 +101,47 @@ do
             fp8_data_format="e4m3"
         fi
 
-        log_path="./logs/${model}-${setting}.log"
+        log_path="./logs/${model_log}-${setting}.log"
 
-        python -c '\
-            from neural_coder import enable
-            result, _, _ = enable(
-                code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/text-classification/run_glue.py",
-                args="--model_name_or_path albert-base-v2 --task_name sst2 --do_eval --output_dir result",
-                features=[${feature}],
-                fp8_data_format=${fp8_data_format},
-                run_bench=True,
-                use_inc=True,
-            )
-            print("acc_delta:", result[5])
-            print("acc_fp32:", result[6])
-            print("acc_int8:", result[7])
-        '\
-        2>&1 | tee ${log_path}
-    
+        if [ ${pool} == "vision" ]; then
+            python -c '\
+                from neural_coder import enable
+                result, _, _ = enable(
+                    code="?",
+                    args="?",
+                    features=[${feature}],
+                    fp8_data_format=${fp8_data_format},
+                    run_bench=True,
+                    use_inc=True,
+                )
+                print("acc_delta:", result[5])
+                print("acc_fp32:", result[6])
+                print("acc_int8:", result[7])
+            '\
+            2>&1 | tee ${log_path}
+        elif [ ${pool} == "hf" ]; then
+            python -c '\
+                from neural_coder import enable
+                result, _, _ = enable(
+                    code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/text-classification/run_glue.py",
+                    args="--model_name_or_path ${model} --task_name ${task} --do_eval --output_dir result",
+                    features=[${feature}],
+                    fp8_data_format=${fp8_data_format},
+                    run_bench=True,
+                    use_inc=True,
+                )
+                print("acc_delta:", result[5])
+                print("acc_fp32:", result[6])
+                print("acc_int8:", result[7])
+            '\
+            2>&1 | tee ${log_path}
+
         acc_delta=$(grep "acc_delta:" ${log_path} | sed -e 's/.*acc_delta//;s/[^0-9.]//g')
         acc_fp32=$(grep "acc_fp32:" ${log_path} | sed -e 's/.*acc_fp32//;s/[^0-9.]//g')
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
-        
+
         echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} | tee -a ./logs/summary.log
-        
+
         # clear cache for space
         rm -rf ~/.cache/torch/hub/checkpoints/
         rm -rf ~/.cache/huggingface
