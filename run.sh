@@ -89,6 +89,10 @@ do
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
         
         echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} | tee -a ./logs/summary.log
+        
+        # clear cache for space
+        rm -rf /root/.cache/torch/hub/checkpoints/
+        rm -rf /root/.cache/huggingface
     done
 done
 
