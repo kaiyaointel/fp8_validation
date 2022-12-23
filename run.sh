@@ -69,6 +69,10 @@ setting_list=($(echo "${setting_all}" |sed 's/,/ /g'))
 
 for model in ${model_list[@]}
 do
+    # clear cache for space
+    rm -rf ~/.cache/torch/hub/checkpoints/
+    rm -rf ~/.cache/huggingface
+
     if [ ${pool} == "hf" ]; then
         # hf finetune dataset
         if [ ${model} == "textattack/roberta-base-RTE" ]; then
@@ -100,7 +104,7 @@ do
             task="food101"
         fi
     fi
-    
+
     model_log=${model}
     if [[ ${model} =~ "/" ]]; then
         model_log=${model//'/'/'-'}
@@ -129,10 +133,7 @@ do
         fi
 
         log_path="./logs/${model_log}-${setting}.log"
-        # clear cache for space
-        rm -rf ~/.cache/torch/hub/checkpoints/
-        rm -rf ~/.cache/huggingface
-        
+
         if [ ${pool} == "vision" ]; then
             python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/pytorch/examples/blob/main/imagenet/main.py", args="-a '${model}' -e --pretrained /path/to/dataset", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
             2>&1 | tee ${log_path}
@@ -143,18 +144,19 @@ do
             python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/image-classification/run_image_classification.py", args="--model_name_or_path '${model}' --dataset_name '${task}' --do_eval --output_dir result --remove_unused_columns False", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
             2>&1 | tee ${log_path}
         fi
-        
+
         acc_delta=$(grep "acc_delta:" ${log_path} | sed -e 's/.*acc_delta//;s/[^-0-9.]//g')
         acc_fp32=$(grep "acc_fp32:" ${log_path} | sed -e 's/.*acc_fp32//;s/[^0-9.]//g')
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
 
         echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} | tee -a ./logs/summary.log
 
-        # clear cache for space
-        rm -rf ~/.cache/torch/hub/checkpoints/
-        rm -rf ~/.cache/huggingface
-
     done
+
+    # clear cache for space
+    rm -rf ~/.cache/torch/hub/checkpoints/
+    rm -rf ~/.cache/huggingface
+
 done
 
 cat ./logs/summary.log
