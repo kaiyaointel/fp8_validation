@@ -29,12 +29,12 @@ if [ ${pool} == "vision" ]; then
 elif [ ${pool} == "hf" ]; then
     # finetuned first
     model_all="\
-        howey/roberta-large-sst2,\
         textattack/roberta-base-RTE,\
         textattack/bert-base-uncased-RTE,\
         Intel/bert-base-uncased-mrpc,\
         textattack/bert-base-uncased-MRPC,\
         philschmid/MiniLM-L6-H384-uncased-sst2,\
+        howey/roberta-large-sst2,\
         distilbert-base-uncased-finetuned-sst-2-english,\
     "
 elif [ ${pool} == "vit" ]; then
