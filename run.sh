@@ -27,15 +27,24 @@ if [ ${pool} == "vision" ]; then
         regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_y_3_2gf,regnet_y_8gf,regnet_y_16gf,regnet_y_32gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,regnet_x_3_2gf,regnet_x_8gf,regnet_x_16gf,regnet_x_32gf,\
     "
 elif [ ${pool} == "hf" ]; then
-	# finetuned first
+    # finetuned first
     model_all="\
+        howey/roberta-large-sst2,\
         textattack/roberta-base-RTE,\
         textattack/bert-base-uncased-RTE,\
         Intel/bert-base-uncased-mrpc,\
         textattack/bert-base-uncased-MRPC,\
         philschmid/MiniLM-L6-H384-uncased-sst2,\
-        howey/roberta-large-sst2,\
         distilbert-base-uncased-finetuned-sst-2-english,\
+    "
+elif [ ${pool} == "vit" ]; then
+    # finetuned first
+    model_all="\
+        nateraw/vit-base-beans,\
+        aaraki/vit-base-patch16-224-in21k-finetuned-cifar10,\
+        farleyknight-org-username/vit-base-mnist,\
+        akahana/vit-base-cats-vs-dogs,\
+        nateraw/food,\
     "
 fi
 
@@ -60,23 +69,38 @@ setting_list=($(echo "${setting_all}" |sed 's/,/ /g'))
 
 for model in ${model_list[@]}
 do
-    # hf finetune dataset
-    if [ ${model} == "textattack/roberta-base-RTE" ]; then
-        task="rte"
-    elif [ ${model} == "textattack/bert-base-uncased-RTE" ]; then
-        task="rte"
-    elif [ ${model} == "Intel/bert-base-uncased-mrpc" ]; then
-        task="mrpc"
-    elif [ ${model} == "textattack/bert-base-uncased-MRPC" ]; then
-        task="mrpc"
-    elif [ ${model} == "philschmid/MiniLM-L6-H384-uncased-sst2" ]; then
-        task="sst2"
-    elif [ ${model} == "howey/roberta-large-sst2" ]; then
-        task="sst2"
-    elif [ ${model} == "distilbert-base-uncased-finetuned-sst-2-english" ]; then
-        task="sst2"
+    if [ ${pool} == "hf" ]; then
+        # hf finetune dataset
+        if [ ${model} == "textattack/roberta-base-RTE" ]; then
+            task="rte"
+        elif [ ${model} == "textattack/bert-base-uncased-RTE" ]; then
+            task="rte"
+        elif [ ${model} == "Intel/bert-base-uncased-mrpc" ]; then
+            task="mrpc"
+        elif [ ${model} == "textattack/bert-base-uncased-MRPC" ]; then
+            task="mrpc"
+        elif [ ${model} == "philschmid/MiniLM-L6-H384-uncased-sst2" ]; then
+            task="sst2"
+        elif [ ${model} == "howey/roberta-large-sst2" ]; then
+            task="sst2"
+        elif [ ${model} == "distilbert-base-uncased-finetuned-sst-2-english" ]; then
+            task="sst2"
+        fi
+    elif [ ${pool} == "vit" ]; then
+        # vit finetune dataset
+        if [ ${model} == "nateraw/vit-base-beans" ]; then
+            task="beans"
+        elif [ ${model} == "aaraki/vit-base-patch16-224-in21k-finetuned-cifar10" ]; then
+            task="cifar10"
+        elif [ ${model} == "farleyknight-org-username/vit-base-mnist" ]; then
+            task="mnist"
+        elif [ ${model} == "akahana/vit-base-cats-vs-dogs" ]; then
+            task="cats_vs_dogs"
+        elif [ ${model} == "nateraw/food" ]; then
+            task="food101"
+        fi
     fi
-
+    
     model_log=${model}
     if [[ ${model} =~ "/" ]]; then
         model_log=${model//'/'/'-'}
@@ -108,15 +132,18 @@ do
         # clear cache for space
         rm -rf ~/.cache/torch/hub/checkpoints/
         rm -rf ~/.cache/huggingface
-		
+        
         if [ ${pool} == "vision" ]; then
             python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/pytorch/examples/blob/main/imagenet/main.py", args="-a '${model}' -e --pretrained /path/to/dataset", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
             2>&1 | tee ${log_path}
         elif [ ${pool} == "hf" ]; then
             python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/text-classification/run_glue.py", args="--model_name_or_path '${model}' --task_name '${task}' --do_eval --output_dir result", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
             2>&1 | tee ${log_path}
-		fi
-		
+        elif [ ${pool} == "vit" ]; then
+            python -c 'from neural_coder import enable; result, _, _ = enable(code="https://github.com/huggingface/transformers/blob/v4.21-release/examples/pytorch/image-classification/run_image_classification.py", args="--model_name_or_path '${model}' --dataset_name '${task}' --do_eval --output_dir result --remove_unused_columns False", features=["'${feature}'"], fp8_data_format="'${fp8_data_format}'", run_bench=True, use_inc=True,); print("acc_delta:", result[5]); print("acc_fp32:", result[6]); print("acc_int8:", result[7]);'\
+            2>&1 | tee ${log_path}
+        fi
+        
         acc_delta=$(grep "acc_delta:" ${log_path} | sed -e 's/.*acc_delta//;s/[^-0-9.]//g')
         acc_fp32=$(grep "acc_fp32:" ${log_path} | sed -e 's/.*acc_fp32//;s/[^0-9.]//g')
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
@@ -126,6 +153,7 @@ do
         # clear cache for space
         rm -rf ~/.cache/torch/hub/checkpoints/
         rm -rf ~/.cache/huggingface
+
     done
 done
 
