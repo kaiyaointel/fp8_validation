@@ -62,8 +62,10 @@ setting_all="\
     int8_dynamic,\
     fp8_static_e5m2,\
     fp8_static_e4m3,\
+    fp8_static_e3m4,\
     fp8_dynamic_e5m2,\
     fp8_dynamic_e4m3,\
+    fp8_dynamic_e3m4,\
 "
 setting_list=($(echo "${setting_all}" |sed 's/,/ /g'))
 
@@ -101,7 +103,7 @@ do
         elif [ ${model} == "akahana/vit-base-cats-vs-dogs" ]; then
             task="cats_vs_dogs"
         elif [ ${model} == "nateraw/food" ]; then
-            task="food101"
+            task="nateraw/food101"
         fi
     fi
 
@@ -124,12 +126,18 @@ do
         elif [ ${setting} == "fp8_static_e4m3" ]; then
             feature="pytorch_inc_static_quant_fx_fp8"
             fp8_data_format="e4m3"
+        elif [ ${setting} == "fp8_static_e3m4" ]; then
+            feature="pytorch_inc_static_quant_fx_fp8"
+            fp8_data_format="e3m4"
         elif [ ${setting} == "fp8_dynamic_e5m2" ]; then
             feature="pytorch_inc_dynamic_quant_fp8"
             fp8_data_format="e5m2"
         elif [ ${setting} == "fp8_dynamic_e4m3" ]; then
             feature="pytorch_inc_dynamic_quant_fp8"
             fp8_data_format="e4m3"
+        elif [ ${setting} == "fp8_dynamic_e3m4" ]; then
+            feature="pytorch_inc_dynamic_quant_fp8"
+            fp8_data_format="e3m4"
         fi
 
         log_path="./logs/${model_log}-${setting}.log"
