@@ -320,15 +320,16 @@ do
 
     if [ ${pool} == "hf" ]; then
         # hf finetune dataset
-        if [[ ${model} =~ "cola" || ${model} =~ "COLA" ]]; then
+		model_t=$(echo ${model} | tr [A-Z] [a-z])
+        if [[ ${model_t} =~ "cola" ]]; then
             task="cola"
-        elif [[ ${model} =~ "sst2" || ${model} =~ "SST2" ]]; then
+        elif [[ ${model_t} =~ "sst2" ]]; then
             task="sst2"
-        elif [[ ${model} =~ "mrpc" || ${model} =~ "MRPC" ]]; then
+        elif [[ ${model_t} =~ "mrpc" ]]; then
             task="mrpc"
-        elif [[ ${model} =~ "stsb" || ${model} =~ "STSB" ]]; then
+        elif [[ ${model_t} =~ "stsb" ]]; then
             task="stsb"
-        elif [[ ${model} =~ "qnli" || ${model} =~ "QNLI" ]]; then
+        elif [[ ${model_t} =~ "qnli" ]]; then
             task="qnli"
         fi
     elif [ ${pool} == "vit" ]; then
