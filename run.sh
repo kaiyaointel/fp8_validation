@@ -400,8 +400,8 @@ do
         acc_fp32=$(grep "acc_fp32:" ${log_path} | sed -e 's/.*acc_fp32//;s/[^0-9.]//g')
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
         
-		op_types="[]"
-        op_types=$(grep "Suggested FP8 op types are" ${log_path} | sed -e 's/.*are://;s/; Acc.*//')
+        op_types="[]"
+        op_types=$(grep "op types are" ${log_path} | sed -e 's/.*are://;s/; Acc.*//')
 
         find_str="Disable first conv and last linear"
         disable_first_last=0
