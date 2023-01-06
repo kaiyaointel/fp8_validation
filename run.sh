@@ -7,27 +7,25 @@ pool=${1} # vision or hf
 
 if [ ${pool} == "vision" ]; then
     model_all="\
-        alexnet,\
-        densenet121,densenet161,densenet169,densenet201,\
-        efficientnet_b0,efficientnet_b1,efficientnet_b2,efficientnet_b3,efficientnet_b4,efficientnet_b5,efficientnet_b6,efficientnet_b7,\
-        fbnetc_100,\
+        resnet18,alexnet,\
+        densenet121,densenet161,\
+        efficientnet_b0,efficientnet_b1,efficientnet_b2,\
         googlenet,\
-        inception_v3,\
-        mnasnet0_5,mnasnet0_75,mnasnet1_0,mnasnet1_3,\
-        mobilenet_v2,mobilenet_v3_small,mobilenet_v3_large,\
-        resnet18,resnet34,resnet50,resnet101,resnet152,\
+        mnasnet0_5,mnasnet0_75,\
+        mobilenet_v2,mobilenet_v3_small,\
+        resnet34,resnet50,resnet101,\
         resnext50_32x4d,resnext101_32x8d,\
-        shufflenet_v2_x0_5,shufflenet_v2_x1_0,shufflenet_v2_x1_5,shufflenet_v2_x2_0,\
+        shufflenet_v2_x0_5,shufflenet_v2_x1_0,\
         spnasnet_100,\
         squeezenet1_0,squeezenet1_1,\
-        vgg11,vgg11_bn,vgg13,vgg13_bn,vgg16,vgg16_bn,vgg19,vgg19_bn,\
+        vgg11,vgg11_bn,vgg13,vgg16,vgg19,\
         wide_resnet50_2,wide_resnet101_2,\
         vit_b_16,vit_b_32,vit_l_16,vit_l_32,\
         convnext_tiny,convnext_small,convnext_base,convnext_large,\
-        regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_y_3_2gf,regnet_y_8gf,regnet_y_16gf,regnet_y_32gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,regnet_x_3_2gf,regnet_x_8gf,regnet_x_16gf,regnet_x_32gf,\
+        regnet_y_400mf,regnet_y_800mf,regnet_y_1_6gf,regnet_x_400mf,regnet_x_800mf,regnet_x_1_6gf,\
     "
 elif [ ${pool} == "hf" ]; then
-    # finetuned first
+    # finetuned
     model_all="\
         cointegrated/roberta-large-cola-krishna2020,\
         ModelTC/bert-base-uncased-cola,\
@@ -293,6 +291,11 @@ fi
 
 model_list=($(echo "${model_all}" |sed 's/,/ /g'))
 
+export ftp_proxy="http://proxy-prc.intel.com:913"
+export http_proxy="http://proxy-prc.intel.com:913"
+export https_proxy="http://proxy-prc.intel.com:913"
+export no_proxy=".intel.com"
+
 export LD_PRELOAD=${CONDA_PREFIX}/lib/libjemalloc.so
 export LD_PRELOAD=${LD_PRELOAD}:${CONDA_PREFIX}/lib/libiomp5.so
 export MALLOC_CONF="oversize_threshold:1,background_thread:true,metadata_thp:auto,dirty_decay_ms:9000000000,muzzy_decay_ms:9000000000"
@@ -306,7 +309,6 @@ setting_all="\
     fp8_static_e5m2,\
     fp8_static_e4m3,\
     fp8_static_e3m4,\
-    fp8_dynamic_e5m2,\
     fp8_dynamic_e4m3,\
     fp8_dynamic_e3m4,\
 "
@@ -320,7 +322,7 @@ do
 
     if [ ${pool} == "hf" ]; then
         # hf finetune dataset
-		model_t=$(echo ${model} | tr [A-Z] [a-z])
+        model_t=$(echo ${model} | tr [A-Z] [a-z])
         if [[ ${model_t} =~ "cola" ]]; then
             task="cola"
         elif [[ ${model_t} =~ "sst2" ]]; then
@@ -393,11 +395,21 @@ do
             2>&1 | tee ${log_path}
         fi
 
+        # log parsing
         acc_delta=$(grep "acc_delta:" ${log_path} | sed -e 's/.*acc_delta//;s/[^-0-9.]//g')
         acc_fp32=$(grep "acc_fp32:" ${log_path} | sed -e 's/.*acc_fp32//;s/[^0-9.]//g')
         acc_int8=$(grep "acc_int8:" ${log_path} | sed -e 's/.*acc_int8//;s/[^0-9.]//g')
+        
+		op_types="[]"
+        op_types=$(grep "Suggested FP8 op types are" ${log_path} | sed -e 's/.*are://;s/; Acc.*//')
 
-        echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} | tee -a ./logs/summary.log
+        find_str="Disable first conv and last linear"
+        disable_first_last=0
+        if [ `grep -c "${find_str}" ${log_path}` -ne '0' ];then
+            disable_first_last=1
+        fi
+
+        echo ${model} ${setting} ${acc_delta} ${acc_fp32} ${acc_int8} ${op_types} ${disable_first_last} | tee -a ./logs/summary.log
 
     done
 
