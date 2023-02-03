@@ -18,3 +18,9 @@ ViT:
 ```
 bash run.sh vit
 ```
+
+BLOOM:
+
+```
+bash run_cases_bloom.sh
+```
